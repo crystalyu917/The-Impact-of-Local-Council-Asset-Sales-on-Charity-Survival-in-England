@@ -14,15 +14,15 @@ def clean_charity_main(
     """
     
     # Clean and process the charity register
-    charity['registered_charity_number'] = charity['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    charity['registered_charity_number'] = charity['registered_charity_number'].astype(str).str.strip()
     charity['date_of_removal'] = pd.to_datetime(charity['date_of_removal'], errors='coerce')
     charity['charity_status'] = charity['date_of_removal'].apply(lambda x: 'active' if pd.isna(x) else 'inactive')
-    charity['charity_company_registration_number'] = charity['charity_company_registration_number'].notna().astype(int)
+    charity['charity_company_registration_number'] = charity['charity_company_registration_number'].astype(str).str.strip()
+    charity['has_company_number'] = charity['charity_company_registration_number'].ne("").astype(int)
 
-    # Sort the charity register
     charity_sorted = charity.sort_values(
-        by=['registered_charity_number', 'charity_status', 'charity_company_registration_number', 'date_of_removal'],
-        ascending=[True, True, False, False]  # active first, has company number first, latest removal first
+        by=['registered_charity_number', 'charity_status', 'has_company_number', 'date_of_removal'],
+        ascending=[True, True, False, False]
     )
 
     # Drop duplicates based on registered charity number
@@ -30,9 +30,9 @@ def clean_charity_main(
 
     
     # merge with company house data
-    charity_sorted['charity_company_registration_number'] = charity_sorted['charity_company_registration_number'].astype(str).str.strip().str
+    charity_sorted['charity_company_registration_number'] = charity_sorted['charity_company_registration_number'].astype(str).str.strip()
     company_house = company_house.rename(columns={' CompanyNumber': 'CompanyNumber'})
-    company_house['CompanyNumber'] = company_house['CompanyNumber'].astype(str).str.strip().str
+    company_house['CompanyNumber'] = company_house['CompanyNumber'].astype(str).str.strip()
 
     dataset = pd.merge(
     charity_sorted,
@@ -43,7 +43,7 @@ def clean_charity_main(
     )
 
     # merge with charity web data
-    charity_web['charityNumber'] = charity_web['charityNumber'].astype(str).str.strip().str.zfill(6)
+    charity_web['charityNumber'] = charity_web['charityNumber'].astype(str).str.strip()
     charity_web = charity_web.rename(columns={'name': 'charity_name'})
     charity_web = charity_web.rename(columns={'charityNumber': 'registered_charity_number'})
     df = pd.merge(
