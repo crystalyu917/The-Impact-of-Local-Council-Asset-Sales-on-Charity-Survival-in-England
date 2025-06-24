@@ -90,10 +90,42 @@ def clean_charity_main(
             return 'Large'
 
     df['size_category'] = df.apply(classify_size_combined, axis=1)
-    df.drop(columns=['latestIncome'], inplace=True)
-    df.drop(columns=['latestIncomeDate'], inplace=True)
-    df.drop(columns=['has_company_number'], inplace=True)
-    df.drop(columns=['RegAddress.PostTown'], inplace=True)
-    df.drop(columns=['CompanyStatus'], inplace=True)
+    columns_to_drop = [
+        'latestIncome',
+        'latestIncomeDate',
+        'has_company_number',
+        'RegAddress.PostTown',
+        'CompanyStatus',
+        'date_of_extract',
+        'date_cio_dissolution_notice',
+        'cio_is_dissolved',
+        'charity_is_cio',
+        'charity_is_cdf_or_cif',
+        'charity_previously_excepted',
+        'charity_in_administration',
+        'charity_activities',
+        'postalCode',
+        'RegAddress.PostCode',
+        'charity_gift_aid',
+        'charity_reporting_status',
+        'latest_acc_fin_period_start_date',
+        'latest_acc_fin_period_end_date',
+        'latest_expenditure',
+        'charity_contact_address1',
+        'charity_contact_address2',
+        'charity_contact_address3',
+        'charity_contact_address4',
+        'charity_contact_address5',
+        'charity_contact_postcode',
+        'charity_contact_phone',
+        'charity_contact_email',
+        'charity_contact_web',
+        'DissolutionDate',
+        'charity_registration_status',
+        'charity_company_registration_number',
+        'charity_insolvent'
+    ]
+
+    df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
 
     return df
