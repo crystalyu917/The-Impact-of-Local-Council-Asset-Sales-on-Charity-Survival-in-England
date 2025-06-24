@@ -92,5 +92,8 @@ def clean_charity_main(
     df['size_category'] = df.apply(classify_size_combined, axis=1)
     df.drop(columns=['latestIncome'], inplace=True)
     df.drop(columns=['latestIncomeDate'], inplace=True)
+    df.drop(columns=['has_company_number'], inplace=True)
+    df.drop(columns=['RegAddress.PostTown'], inplace=True)
+    df.drop(columns=['CompanyStatus'], inplace=True)
 
     return df
