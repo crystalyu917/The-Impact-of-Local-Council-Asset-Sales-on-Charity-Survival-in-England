@@ -9,28 +9,23 @@ def clean_charity_main(
     local_authority: pd.DataFrame,
     category: pd.DataFrame,
 ) -> pd.DataFrame:
-    
     '''
     Cleans the main charity register and returns a sorted dataset with key information such as charity registration and deregistration date,
     status, local authority, and size classification.
     '''
-    #Charity Dataset Preprocessing
+    # --- Step 1: Charity base cleaning ---
     charity['registered_charity_number'] = charity['registered_charity_number'].astype(str).str.strip()
     charity['date_of_removal'] = pd.to_datetime(charity['date_of_removal'], errors='coerce')
     charity['charity_company_registration_number'] = charity['charity_company_registration_number'].astype(str).str.strip()
     charity['has_company_number'] = charity['charity_company_registration_number'].ne("").astype(int)
-    
-    # Add a column 'charity_status'
     charity['charity_status'] = charity['date_of_removal'].apply(lambda x: 'active' if pd.isna(x) else 'inactive')
 
-
     charity_sorted = charity.sort_values(
-    by=['registered_charity_number', 'charity_status', 'has_company_number', 'date_of_removal'],
-    ascending=[True, True, False, False]
-    )
-    charity_sorted = charity_sorted.drop_duplicates(subset='registered_charity_number', keep='first')
+        by=['registered_charity_number', 'charity_status', 'has_company_number', 'date_of_removal'],
+        ascending=[True, True, False, False]
+    ).drop_duplicates(subset='registered_charity_number', keep='first')
 
-    # Merge with company house data to get registered postcode for charities
+    # --- Step 2: Merge with Company House data ---
     company_house = company_house.rename(columns={' CompanyNumber': 'CompanyNumber'})
     company_house['CompanyNumber'] = company_house['CompanyNumber'].astype(str).str.strip()
     dataset = pd.merge(
@@ -41,7 +36,7 @@ def clean_charity_main(
         how='left'
     )
 
-    # Merge with charity web data to get missing registered postcode and latest income data for charities
+    # --- Step 3: Merge with Charity Web data ---
     charity_web['charityNumber'] = charity_web['charityNumber'].astype(str).str.strip()
     charity_web = charity_web.rename(columns={'name': 'charity_name', 'charityNumber': 'registered_charity_number'})
     df = pd.merge(
@@ -52,32 +47,24 @@ def clean_charity_main(
     )
     df.drop(columns=['CompanyNumber'], inplace=True)
 
-    # Create postcode field from multiple sources
+    # --- Step 4: Postcode and local authority mapping ---
     df['postcode'] = (
         df['RegAddress.PostCode']
         .fillna(df['postalCode'])
         .fillna(df['charity_contact_postcode'])
-    )
+    ).astype(str).str.strip().str.upper()
 
-    # Reorganise columns
-    cols_to_front = ['registered_charity_number', 'charity_name', 'postcode', 'charity_status']
-    df = df[cols_to_front + [col for col in df.columns if col not in cols_to_front]]
-
-    # Clean postcode before mapping to local authority
-    df['postcode'] = df['postcode'].astype(str).str.strip().str.upper()
-
-    # Map postcode to local authority
     postcode_and_la = pd.merge(
         postcodes[['oslaua', 'pcds']],
         local_authority[['LAD23CD', 'LAD23NM']],
         left_on='oslaua',
         right_on='LAD23CD',
         how='left'
-    )
-    postcode_and_la = postcode_and_la.rename(columns={'pcds': 'postcode', 'LAD23NM': 'local_authority_name'})
+    ).rename(columns={'pcds': 'postcode', 'LAD23NM': 'local_authority_name'})
+
     df['local_authority'] = df['postcode'].map(postcode_and_la.set_index('postcode')['local_authority_name'])
 
-    # Classify charity size
+    # --- Step 5: Size classification ---
     def classify_size_combined(row):
         income = row['latest_income']
         if pd.isna(income):
@@ -93,12 +80,18 @@ def clean_charity_main(
 
     df['size_category'] = df.apply(classify_size_combined, axis=1)
 
-    # Merge Category data
+    # --- Step 6: Merge with Category (Classification) ---
     df['registered_charity_number'] = df['registered_charity_number'].astype(str).str.strip().str.zfill(6)
     category['registered_charity_number'] = category['registered_charity_number'].astype(str).str.strip().str.zfill(6)
-    df = pd.merge(dataset, category, on='registered_charity_number', how='inner')
 
-    # drop unwanted columns
+    category_deduped = (
+        category
+        .sort_values(['registered_charity_number', 'classification_description'])
+        .drop_duplicates(subset='registered_charity_number', keep='first')
+    )
+    df = pd.merge(df, category_deduped, on='registered_charity_number', how='left')
+
+    # --- Step 7: Drop unnecessary columns ---
     columns_to_drop = [
         'RegAddress.PostCode',
         'postalCode',
@@ -128,9 +121,20 @@ def clean_charity_main(
         'charity_contact_web',
         'charity_registration_status',
         'charity_company_registration_number',
-        'charity_insolvent'
+        'charity_insolvent',
+        'classification_code',
+        'classification_type',
+        'linked_charity_number_y',
+        'organisation_number_y',
+        'date_of_extract_y',
+        'linked_charity_number_x',
+        'organisation_number_x',
+        'date_of_extract_x'
     ]
-
     df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+
+    # --- Step 8: Final column order ---
+    cols_to_front = ['registered_charity_number', 'charity_name', 'postcode', 'charity_status']
+    df = df[cols_to_front + [col for col in df.columns if col not in cols_to_front]]
 
     return df
