@@ -6,7 +6,8 @@ def clean_charity_main(
     company_house: pd.DataFrame,
     charity_web: pd.DataFrame,
     postcodes: pd.DataFrame,
-    local_authority: pd.DataFrame
+    local_authority: pd.DataFrame,
+    category: pd.DataFrame,
 ) -> pd.DataFrame:
     
     '''
@@ -91,6 +92,11 @@ def clean_charity_main(
             return 'Large'
 
     df['size_category'] = df.apply(classify_size_combined, axis=1)
+
+    # Merge Category data
+    df['registered_charity_number'] = df['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    category['registered_charity_number'] = category['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    df = pd.merge(dataset, category, on='registered_charity_number', how='inner')
 
     # drop unwanted columns
     columns_to_drop = [
