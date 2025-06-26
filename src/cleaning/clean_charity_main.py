@@ -84,12 +84,7 @@ def clean_charity_main(
     df['registered_charity_number'] = df['registered_charity_number'].astype(str).str.strip().str.zfill(6)
     category['registered_charity_number'] = category['registered_charity_number'].astype(str).str.strip().str.zfill(6)
 
-    category_deduped = (
-        category
-        .sort_values(['registered_charity_number', 'classification_description'])
-        .drop_duplicates(subset='registered_charity_number', keep='first')
-    )
-    df = pd.merge(df, category_deduped, on='registered_charity_number', how='left')
+    df = pd.merge(df, category, on='registered_charity_number', how='left')
 
     # --- Step 7: Drop unnecessary columns ---
     columns_to_drop = [
