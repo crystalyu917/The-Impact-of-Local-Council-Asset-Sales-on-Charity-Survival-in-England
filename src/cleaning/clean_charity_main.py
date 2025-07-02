@@ -132,4 +132,55 @@ def clean_charity_main(
     cols_to_front = ['registered_charity_number', 'charity_name', 'postcode', 'charity_status']
     df = df[cols_to_front + [col for col in df.columns if col not in cols_to_front]]
 
+    # Define function to get financial year
+    def get_financial_year(date):
+        if pd.isna(date):
+            return np.nan
+        return date.year if date.month >= 4 else date.year - 1
+
+    # --- ensure dates are in datetime ---
+    df['date_of_registration'] = pd.to_datetime(df['date_of_registration'], errors='coerce')
+    df['date_of_removal'] = pd.to_datetime(df['date_of_removal'], errors='coerce')
+
+    df['registration_year'] = df['date_of_registration'].dt.to_period('Y')
+    df['removal_year'] = df['date_of_removal'].dt.to_period('Y')
+
+    df['registration_month'] = df['date_of_registration'].dt.to_period('M')
+    df['removal_month'] = df['date_of_removal'].dt.to_period('M')
+
+    df['registration_fy'] = df['date_of_registration'].apply(get_financial_year)
+    df['removal_fy'] = df['date_of_removal'].apply(get_financial_year)
+
+    # Step 1: Drop rows with missing classification
+    classification_df = df[['registered_charity_number', 'classification_description']].dropna()
+
+    # Step 2: Create binary indicator (1) for each classification
+    classification_df['value'] = 1
+
+    # Step 3: Pivot to wide format with binary columns
+    classification_dummies = classification_df.pivot_table(
+        index='registered_charity_number',
+        columns='classification_description',
+        values='value',
+        aggfunc='max',
+        fill_value=0
+    )
+
+    # Step 4: Optional – rename columns for consistency (e.g., no spaces or special chars)
+    classification_dummies.columns = [
+        f"classification_{str(col).replace(' ', '_').replace('-', '_').lower()}"
+        for col in classification_dummies.columns
+    ]
+
+    # Step 5: Reset index and merge with original dataset
+    classification_dummies = classification_dummies.reset_index()
+    df = df.drop_duplicates(subset='registered_charity_number')  # ensure one row per charity
+    df = df.merge(classification_dummies, on='registered_charity_number', how='left')
+
+    # Identify classification dummy columns (typically start with 'classification_')
+    category_cols = [col for col in df.columns if col.startswith('classification_')]
+
+    # Fill NaNs with 0 in those columns only
+    df[category_cols] = df[category_cols].fillna(0)
+
     return df
