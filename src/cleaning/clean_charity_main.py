@@ -107,7 +107,7 @@ def apply_category_mapping(
         if value in CATEGORY_MAPPING[key]:
             return key
     else:
-        return 'Other'
+        return 'None'
 
 def base_cleaning(
         charity: pd.DataFrame
