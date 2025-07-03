@@ -97,8 +97,6 @@ CATEGORY_MAPPING = {
     ]
 }
 
-}
-
 def apply_category_mapping(
         value: str
     ) -> str:
