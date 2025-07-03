@@ -2,62 +2,101 @@ import pandas as pd
 import numpy as np
 
 CATEGORY_MAPPING = {
-    'Grants_Related': [
+    # Charities primarily providing financial or material aid
+    'Grantmaking_And_Financial_Support': [
         'classification_makes_grants_to_individuals',
-        'classification_makes_grants_to_organisations'
+        'classification_makes_grants_to_organisations',
+        'classification_provides_other_finance'
     ],
-    'Housing_Infrastructure': [
+
+    # Charities focused on accommodation, land, or physical spaces
+    'Housing_And_Infrastructure': [
         'classification_accommodation/housing',
         'classification_provides_buildings/facilities/open_space'
     ],
-    'Education_Research': [
+
+    # Schools, research institutions, training
+    'Education_And_Research': [
         'classification_education/training',
         'classification_sponsors_or_undertakes_research'
     ],
-    'Children_Youth': [
+
+    # Youth development, sports
+    'Children_And_Youth': [
         'classification_children/young_people',
         'classification_amateur_sport'
     ],
-    'Health_Disability': [
+
+    # Health-related causes and support for disabilities
+    'Health_And_Disability': [
         'classification_the_advancement_of_health_or_saving_of_lives',
         'classification_disability',
         'classification_people_with_disabilities'
     ],
-    'Human_Rights_Advocacy': [
+
+    # Rights, advocacy, and equalities work
+    'Advocacy_And_Human_Rights': [
         'classification_human_rights/religious_or_racial_harmony/equality_or_diversity',
         'classification_provides_advocacy/advice/information',
         'classification_people_of_a_particular_ethnic_or_racial_origin'
     ],
-    'Religion_Faith': [
-        'classification_religious_activities',
-        'classification_acts_as_an_umbrella_or_resource_body'
+
+    # Faith-based or religious missions
+    'Religious_Activities': [
+        'classification_religious_activities'
     ],
-    'Environment_Animals': [
+
+    # Environmental and animal welfare work
+    'Environment_And_Animals': [
         'classification_environment/conservation/heritage',
         'classification_animals'
     ],
-    'Economic_Social_Development': [
+
+    # General welfare, community improvement, poverty relief
+    'Community_And_Social_Welfare': [
         'classification_economic/community_development/employment',
         'classification_general_charitable_purposes',
+        'classification_the_prevention_or_relief_of_poverty',
         'classification_provides_services',
-        'classification_provides_human_resources',
-        'classification_provides_other_finance',
-        'classification_other_charitable_purposes',
-        'classification_other_charities_or_voluntary_bodies',
         'classification_other_charitable_activities',
-        'classification_the_prevention_or_relief_of_poverty'
+        'classification_other_charitable_purposes'
     ],
-    'Overseas_Famine_Relief': [
+
+    # Charities supporting the sector or other organisations
+    'Charity_Sector_Support': [
+        'classification_acts_as_an_umbrella_or_resource_body',
+        'classification_other_charities_or_voluntary_bodies',
+        'classification_provides_human_resources'
+    ],
+
+    # Overseas development and aid
+    'International_And_Humanitarian': [
         'classification_overseas_aid/famine_relief'
     ],
-    'Other_Miscellaneous': [
+
+    # Services for older people
+    'Elderly_Support': [
+        'classification_elderly/old_people'
+    ],
+
+    # Broad beneficiaries or undefined groups
+    'General_Public_And_Misc': [
         'classification_the_general_public/mankind',
-        'classification_other_defined_groups',
-        'classification_recreation',
-        'classification_elderly/old_people',
-        'classification_armed_forces/emergency_service_efficiency',
-        'classification_arts/culture/heritage/science'
+        'classification_other_defined_groups'
+    ],
+
+    # Arts, culture, recreation and leisure
+    'Arts_And_Recreation': [
+        'classification_arts/culture/heritage/science',
+        'classification_recreation'
+    ],
+
+    # Armed forces, emergency services efficiency
+    'Military_And_Civil_Efficiency': [
+        'classification_armed_forces/emergency_service_efficiency'
     ]
+}
+
 }
 
 def apply_category_mapping(
