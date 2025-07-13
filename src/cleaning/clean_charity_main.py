@@ -154,10 +154,11 @@ def base_cleaning(
 
     return charity_sorted
 
-def process_company_house_inplace(company_house: pd.DataFrame):
+def process_company_house(company_house: pd.DataFrame):
     """
     Process Company House data to ensure correct column names & types.
     """
+    company_house = company_house.copy()
     company_house.rename(
         columns={
             ' CompanyNumber': 'CompanyNumber'
@@ -171,6 +172,39 @@ def process_company_house_inplace(company_house: pd.DataFrame):
         .astype(str)
         .str.strip()
     )
+    return company_house
+
+def process_charity_web(charity_web: pd.DataFrame):
+    charity_web['charityNumber'] = (
+        charity_web['charityNumber'].astype(str).str.strip()
+    )
+    charity_web = charity_web.rename(
+        columns={
+            'name': 'charity_name', 
+            'charityNumber': 'registered_charity_number'}
+    )
+    return charity_web
+
+def load_postcode2lad_lookup(
+        postcodes: pd.DataFrame, 
+        local_authority: pd.DataFrame,
+) -> pd.DataFrame:
+    """Create and load postcode2lad lookup df"""
+    # Create mapping for postcodes and LAD
+    postcode_and_la = pd.merge(
+        postcodes[['oslaua', 'pcds']],
+        local_authority[['LAD23CD', 'LAD23NM']],
+        left_on='oslaua',
+        right_on='LAD23CD',
+        how='left'
+    ).rename(columns={'pcds': 'postcode', 'LAD23NM': 'local_authority_name'})
+    postcode_and_la = (
+        postcode_and_la.set_index('postcode')['local_authority_name']
+    )
+    return postcode_and_la
+
+
+
 
 def clean_charity_main(
     charity: pd.DataFrame,
@@ -180,52 +214,60 @@ def clean_charity_main(
     local_authority: pd.DataFrame,
     category: pd.DataFrame,
 ) -> pd.DataFrame:
-    '''
-    Cleans the main charity register and returns a sorted dataset with key information such as charity registration and deregistration date,
-    status, local authority, and size classification.
-    '''
+    """
+    Cleans the main charity register and returns a sorted dataset with
+    key information such as charity registration and deregistration
+    date, status, local authority, and size classification.
+    """
+    # Basic cleaning
     charity_sorted = base_cleaning(charity)
-    process_company_house_inplace(company_house)
+    company_house = process_company_house(company_house)
+    charity_web = process_charity_web(charity_web)
 
-    # Merge with company house data
-    dataset = pd.merge(
+    # Data merging: company house
+    merged_data = pd.merge(
         charity_sorted,
         company_house[['CompanyNumber', 'CompanyStatus', 'RegAddress.PostCode']],
         left_on='charity_company_registration_number',
         right_on='CompanyNumber',
         how='left'
     )
-    dataset.drop(columns=['CompanyNumber'], inplace=True)
-
-    # --- Step 3: Merge with Charity Web data ---
-    charity_web['charityNumber'] = charity_web['charityNumber'].astype(str).str.strip()
-    charity_web = charity_web.rename(columns={'name': 'charity_name', 'charityNumber': 'registered_charity_number'})
-    df = pd.merge(
-        dataset,
+    merged_data.drop(columns=['CompanyNumber'], inplace=True)
+    
+    # Data merging: charity web
+    merged_data = pd.merge(
+        merged_data,
         charity_web[['registered_charity_number', 'charity_name', 'postalCode', 'latestIncome']],
         on=['registered_charity_number', 'charity_name'],
         how='left'
     )
-   
 
-    # --- Step 4: Postcode and local authority mapping ---
+    # Copy merged data for location cleaning
+    df = merged_data.copy()
+
+    # Treate empty string as NaN
+    df['RegAddress.PostCode'] = df['RegAddress.PostCode'].replace('', np.nan)
+    df['postalCode'] = df['postalCode'].replace('', np.nan)
+    df['charity_contact_postcode'] = (
+        df['charity_contact_postcode'].replace('', np.nan)
+    )
+
+    # Create standard postcode reference with fallback
     df['postcode'] = (
         df['RegAddress.PostCode']
         .fillna(df['postalCode'])
         .fillna(df['charity_contact_postcode'])
     ).astype(str).str.strip().str.upper()
 
-    postcode_and_la = pd.merge(
-        postcodes[['oslaua', 'pcds']],
-        local_authority[['LAD23CD', 'LAD23NM']],
-        left_on='oslaua',
-        right_on='LAD23CD',
-        how='left'
-    ).rename(columns={'pcds': 'postcode', 'LAD23NM': 'local_authority_name'})
+    # Load the lookup df for postcode and LAD
+    postcode2lad_lookup = load_postcode2lad_lookup(
+        postcodes=postcodes, local_authority=local_authority
+    )
 
-    df['local_authority'] = df['postcode'].map(postcode_and_la.set_index('postcode')['local_authority_name'])
-
-    # --- Step 5: Size classification ---
+    # Map the postcode in df to the proper LAD
+    df['local_authority'] = df['postcode'].map(postcode2lad_lookup)
+    
+    # Size classification
     def classify_size_combined(row):
         income = row['latest_income']
         if pd.isna(income):
@@ -241,13 +283,18 @@ def clean_charity_main(
 
     df['size_category'] = df.apply(classify_size_combined, axis=1)
 
-    # --- Step 6: Merge with Category (Classification) ---
-    df['registered_charity_number'] = df['registered_charity_number'].astype(str).str.strip().str.zfill(6)
-    category['registered_charity_number'] = category['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    # Clean registered charity number
+    df['registered_charity_number'] = (
+        df['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    )
+    category['registered_charity_number'] = (
+        category['registered_charity_number'].astype(str).str.strip().str.zfill(6)
+    )
 
+    # Merge categories back into the dataframe
     df = pd.merge(df, category, on='registered_charity_number', how='left')
 
-    # --- Step 7: Drop unnecessary columns ---
+    # Drop columns that will not be used (or duplicate columns)
     columns_to_drop = [
         'RegAddress.PostCode',
         'postalCode',
@@ -289,9 +336,12 @@ def clean_charity_main(
     ]
     df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
 
-    # --- Step 8: Final column order ---
-    cols_to_front = ['registered_charity_number', 'charity_name', 'postcode', 'charity_status']
-    df = df[cols_to_front + [col for col in df.columns if col not in cols_to_front]]
+    # Re-order the columns
+    cols2front = ['registered_charity_number', 'charity_name', 
+                     'postcode', 'charity_status']
+    df = df[
+        cols2front + [col for col in df.columns if col not in cols2front]
+    ]
 
     # Define function to get financial year
     def get_financial_year(date):
@@ -299,15 +349,12 @@ def clean_charity_main(
             return np.nan
         return date.year if date.month >= 4 else date.year - 1
 
-    # --- ensure dates are in datetime ---
-    df['date_of_registration'] = pd.to_datetime(df['date_of_registration'], errors='coerce')
-    df['date_of_removal'] = pd.to_datetime(df['date_of_removal'], errors='coerce')
-
-    df['registration_year'] = df['date_of_registration'].dt.to_period('Y')
-    df['removal_year'] = df['date_of_removal'].dt.to_period('Y')
-
-    df['registration_month'] = df['date_of_registration'].dt.to_period('M')
-    df['removal_month'] = df['date_of_removal'].dt.to_period('M')
+    # Datetime formatting
+    df['date_of_registration'] = pd.to_datetime(
+        df['date_of_registration'], errors='coerce')
+    
+    df['date_of_removal'] = pd.to_datetime(
+        df['date_of_removal'], errors='coerce')
 
     df['registration_fy'] = df['date_of_registration'].apply(get_financial_year)
     df['removal_fy'] = df['date_of_removal'].apply(get_financial_year)
@@ -319,13 +366,13 @@ def clean_charity_main(
         subset =['registered_charity_number', 'classification_description'], inplace=True
         )
 
-    # Step 1: Drop rows with missing classification
-    classification_df = df[['registered_charity_number', 'classification_description']].dropna()
+    # Proceed to final cleaning and classification dummies generation
+    classification_df = df.copy()
 
-    # Step 2: Create binary indicator (1) for each classification
+    # Create binary indicator (1) for each classification
     classification_df['value'] = 1
 
-    # Step 3: Pivot to wide format with binary columns
+    # Pivot to wide format with binary columns
     classification_dummies = classification_df.pivot_table(
         index='registered_charity_number',
         columns='classification_description',
@@ -334,9 +381,7 @@ def clean_charity_main(
         fill_value=0
     )
 
-    
-
-    # Step 5: Reset index and merge with original dataset
+    # Reset index and merge with original dataset
     classification_dummies = classification_dummies.reset_index()
     df = df.drop_duplicates(subset='registered_charity_number')  # ensure one row per charity
     df = df.merge(classification_dummies, on='registered_charity_number', how='left')

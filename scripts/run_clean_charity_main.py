@@ -18,4 +18,4 @@ if __name__ == '__main__':
     df = clean_charity_main(charity, company_house, charity_web, postcodes, local_authority, category)
     df.to_csv('data/processed/charity_main_cleaned.csv', index=False)
 
-    print("✅ Cleaned dataset saved to: data/processed/charity_main_cleaned.csv")
+    print("Cleaned dataset saved to: data/processed/charity_main_cleaned.csv")
