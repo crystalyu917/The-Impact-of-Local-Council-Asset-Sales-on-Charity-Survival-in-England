@@ -124,7 +124,8 @@ def basic_cleaning(df, index):
     if 'la name' in df.columns:
         df = df.rename(columns={'la name': 'local_authority'})
     if 'local_authority' in df.columns:
-        df['local_authority'] = df['local_authority'].str.replace(r'(?i)\\(ua\\)|\\bua\\b', '', regex=True).str.strip()
+        df['local_authority'] = df['local_authority'].str.lower()
+        df['local_authority'] = df['local_authority'].str.replace(r' \(ua\)|\\bua\\b| ua', '', regex=True).str.strip()
     first_col = df.columns[0]
     df = df[~df[first_col].isin([pd.NA, None, '[z]', 'la_lgf_code'])]
     df = df.dropna(subset=[first_col])
@@ -185,22 +186,29 @@ def melt_disposal(dfs):
     return pd.concat(long_frames, ignore_index=True)
 
 def create_complete_panel(disposal_long_df, dataset):
+    removals = dataset.groupby(['local_authority', 'removal_fy', 'size_category']).size().reset_index(name='removals').rename(columns={'removal_fy': 'financial_year'})
     disposal_long_df = disposal_long_df[disposal_long_df['category'] == 'all services total']
     disposal_long_df = disposal_long_df.groupby(['local_authority', 'financial_year', 'category']).agg({'value': 'sum'}).reset_index()
-    removals = dataset.groupby(['local_authority', 'removal_fy', 'size_category']).size().reset_index(name='removals').rename(columns={'removal_fy': 'financial_year'})
-    panel = pd.merge(disposal_long_df, removals, on=["financial_year", "local_authority"], how="outer")
+    
+    unique_years = disposal_long_df['financial_year'].unique()
+    unique_authorities = disposal_long_df['local_authority'].unique()
+    unique_size_categories = removals['size_category'].dropna().unique()
+    all_combinations = list(itertools.product(unique_years, unique_authorities, unique_size_categories))
+    complete_index = pd.DataFrame(all_combinations, columns=['financial_year', 'local_authority', 'size_category'])
+    
+    complete_disposal = pd.merge(complete_index, disposal_long_df, on=["financial_year", "local_authority"], how="left")
+    panel = pd.merge(complete_disposal, removals, how="left", on=['local_authority', 'financial_year','size_category'] )
+    
     panel['removals'] = panel['removals'].fillna(0).astype(int)
     panel = panel[(panel['financial_year'] >= 2015) & (panel['financial_year'] <= 2023)]
     panel['value'] = pd.to_numeric(panel['value'], errors='coerce')/1000
-    unique_years = panel['financial_year'].unique()
-    unique_authorities = panel['local_authority'].unique()
-    unique_size_categories = panel['size_category'].dropna().unique()
-    all_combinations = list(itertools.product(unique_years, unique_authorities, unique_size_categories))
-    complete_index = pd.DataFrame(all_combinations, columns=['financial_year', 'local_authority', 'size_category'])
-    complete_panel = pd.merge(complete_index, panel, on=['financial_year', 'local_authority', 'size_category'], how='left')
-    complete_panel['removals'] = complete_panel['removals'].fillna(0).astype(int)
-    complete_panel['value'] = complete_panel.groupby(['local_authority', 'financial_year'])['value'].transform('first')
-    filtered_panel = complete_panel.drop(columns=['category'], errors='ignore').dropna(subset=['value']).sort_values(['local_authority', 'size_category', 'financial_year'])
+    panel['removals'] = panel['removals'].fillna(0).astype(int)
+    panel['value'] = panel.groupby(['local_authority', 'financial_year'])['value'].transform('first')
+    filtered_panel = panel.drop(columns=['category'], errors='ignore').sort_values(['local_authority', 'size_category', 'financial_year'])
+    
     for lag in [1, 2, 3]:
         filtered_panel[f'value_lag{lag}'] = filtered_panel.groupby(['local_authority', 'size_category'])['value'].shift(lag)
+    
+    filtered_panel = filtered_panel.dropna(subset=['value'])
+    
     return filtered_panel
