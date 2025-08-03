@@ -185,30 +185,82 @@ def melt_disposal(dfs):
         long_frames.append(long_df)
     return pd.concat(long_frames, ignore_index=True)
 
-def create_complete_panel(disposal_long_df, dataset):
-    removals = dataset.groupby(['local_authority', 'removal_fy', 'size_category']).size().reset_index(name='removals').rename(columns={'removal_fy': 'financial_year'})
-    disposal_long_df = disposal_long_df[disposal_long_df['category'] == 'all services total']
-    disposal_long_df = disposal_long_df.groupby(['local_authority', 'financial_year', 'category']).agg({'value': 'sum'}).reset_index()
-    
-    unique_years = disposal_long_df['financial_year'].unique()
-    unique_authorities = disposal_long_df['local_authority'].unique()
-    unique_size_categories = removals['size_category'].dropna().unique()
-    all_combinations = list(itertools.product(unique_years, unique_authorities, unique_size_categories))
-    complete_index = pd.DataFrame(all_combinations, columns=['financial_year', 'local_authority', 'size_category'])
-    
-    complete_disposal = pd.merge(complete_index, disposal_long_df, on=["financial_year", "local_authority"], how="left")
-    panel = pd.merge(complete_disposal, removals, how="left", on=['local_authority', 'financial_year','size_category'] )
-    
-    panel['removals'] = panel['removals'].fillna(0).astype(int)
-    panel = panel[(panel['financial_year'] >= 2015) & (panel['financial_year'] <= 2023)]
-    panel['value'] = pd.to_numeric(panel['value'], errors='coerce')/1000 # Convert from (All figures in £000s) to millions
-    panel['removals'] = panel['removals'].fillna(0).astype(int)
-    panel['value'] = panel.groupby(['local_authority', 'financial_year'])['value'].transform('first')
-    filtered_panel = panel.drop(columns=['category'], errors='ignore').sort_values(['local_authority', 'size_category', 'financial_year'])
-    
-    for lag in [1, 2, 3]:
-        filtered_panel[f'value_lag{lag}'] = filtered_panel.groupby(['local_authority', 'size_category'])['value'].shift(lag)
-    
-    filtered_panel = filtered_panel.dropna(subset=['value'])
-    
-    return filtered_panel
+def create_removal_rate_panel(disposal_long_df, dataset):
+    """
+    Create a complete panel (2014–2024) combining:
+    - Charity removal rates per local authority, financial year, and size category
+    - Disposal value per local authority and financial year (filtered to 'all services total')
+
+    Parameters:
+    - disposal_long_df: Long-form disposal dataset with columns ['local_authority', 'financial_year', 'category', 'value']
+    - dataset: Charity data with at least:
+        ['registered_charity_number', 'registration_fy', 'removal_fy',
+         'local_authority', 'size_category']
+
+    Returns:
+    - panel: DataFrame with columns:
+        ['local_authority', 'financial_year', 'size_category',
+         'n_removed', 'n_active', 'n_active_lag1', 'removal_rate', 'value']
+    """
+
+    # 1. Setup full index
+    size_categories = dataset['size_category'].dropna().unique()
+    local_authorities = dataset['local_authority'].dropna().unique()
+    years = list(range(2014, 2025))
+
+    full_index = pd.DataFrame(
+        list(itertools.product(local_authorities, years, size_categories)),
+        columns=['local_authority', 'financial_year', 'size_category']
+    )
+
+    # 2. Compute n_removed
+    removed = dataset[dataset['removal_fy'].notna()].copy()
+    n_removed = (
+        removed.groupby(['local_authority', 'removal_fy', 'size_category'])
+               .size()
+               .reset_index(name='n_removed')
+               .rename(columns={'removal_fy': 'financial_year'})
+    )
+
+    # 3. Expand charity active years
+    expanded_rows = []
+    for _, row in dataset.iterrows():
+        start = int(row['registration_fy'])
+        end = int(row['removal_fy']) if pd.notna(row['removal_fy']) else 2024
+        for fy in range(start, end + 1):
+            if 2014 <= fy <= 2024:
+                expanded_rows.append((row['registered_charity_number'], fy, row['local_authority'], row['size_category']))
+
+    charity_years = pd.DataFrame(expanded_rows, columns=[
+        'registered_charity_number', 'financial_year', 'local_authority', 'size_category'
+    ])
+
+    n_active = (
+        charity_years.groupby(['local_authority', 'financial_year', 'size_category'])
+                     .size()
+                     .reset_index(name='n_active')
+    )
+
+    # 4. Compute lagged active
+    n_active['n_active_lag1'] = (
+        n_active.sort_values(['local_authority', 'size_category', 'financial_year'])
+                .groupby(['local_authority', 'size_category'])['n_active']
+                .shift(1)
+    )
+
+    # 5. Merge into full panel
+    panel = full_index.merge(n_removed, how='left', on=['local_authority', 'financial_year', 'size_category'])
+    panel = panel.merge(n_active, how='left', on=['local_authority', 'financial_year', 'size_category'])
+
+    panel['n_removed'] = panel['n_removed'].fillna(0).astype(int)
+    panel['n_active'] = panel['n_active'].fillna(0).astype(int)
+    panel['removal_rate'] = panel['n_removed'] / panel['n_active_lag1']
+
+    # 6. Join disposal value for 'all services total'
+    disposal_filtered = disposal_long_df[disposal_long_df['category'].str.lower() == 'all services total'].copy()
+    disposal_filtered = disposal_filtered.groupby(['local_authority', 'financial_year'])['value'].sum().reset_index()
+    disposal_filtered['value'] = pd.to_numeric(disposal_filtered['value'], errors='coerce') / 1000  # Convert to £000s
+
+    panel = panel.merge(disposal_filtered, how='left', on=['local_authority', 'financial_year'])
+
+    return panel
