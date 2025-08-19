@@ -1,7 +1,20 @@
-# Overview
+# The change in the UK charity landscape
 
-# Project Structure
+## Overview  
+This repository contains the source materials for a dissertation submitted in August 2025 as part of the MSc Knowledge, Information and Data Science programme at University College London (UCL).  
 
+The study was conducted in collaboration with the Social Investment Business through the Master’s Dissertation Scheme.  
+
+## Environment & Installation
+```bash
+# install requirements
+pip install -r requirements.txt
+
+# (optional) install package in editable mode if using src/ for imports/console scripts
+pip install -e .
+```
+## Project Structure
+```bash
 THE-CHANGE-IN-THE-UK-CHARITY-LANDSCAPE/
 ├─ pyproject.toml
 ├─ README.md
@@ -27,5 +40,5 @@ THE-CHANGE-IN-THE-UK-CHARITY-LANDSCAPE/
   │  └─ clean_receipt.py
   ├─ io.py
   └─ config.py
-
-
+```
+## Datasets
