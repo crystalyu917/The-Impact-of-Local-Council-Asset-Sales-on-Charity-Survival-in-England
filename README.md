@@ -1,4 +1,4 @@
-# The change in the UK charity landscape
+# The Impact of Local Council Asset Sales on Charity Survival in England
 
 ## Overview  
 This repository contains the source materials for a dissertation submitted in August 2025 as part of the MSc Knowledge, Information and Data Science programme at University College London (UCL).  
