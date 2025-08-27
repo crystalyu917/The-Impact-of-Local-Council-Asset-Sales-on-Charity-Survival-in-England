@@ -16,7 +16,6 @@ pip install -e.
 ## Project Structure
 ```bash
 THE-CHANGE-IN-THE-UK-CHARITY-LANDSCAPE/
-├── pyproject.toml
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
@@ -53,10 +52,6 @@ FindThatCharity. (2025). Findthatcharity webscraper [Accessed: April 2025]. Find
 
 ONS. (2025). Postcode lookup to local authority codes [Accessed:  2025]. Office for National Statistics. https://www.ons.gov.uk/
 
-## Results
-This study examined the relationship between local authority asset disposals and the survival of charities in England between 2015 and 2023. By linking Charity Commission records with capital receipts data, the analysis applied fixed-effects panel models with lag structures to capture both contemporaneous and delayed associations. The findings reveal a clear size-based divergence. Large charities appear resilient, showing no immediate adverse effects and in some cases benefiting from disposals, while small charities face sustained increases in removals lasting up to three years, with the strongest effect at the two-year lag. Medium charities experience more modest, delayed impacts, becoming vulnerable only in the later years.
-
-These patterns suggest that asset disposals create cumulative pressures that disproportionately affect organisations with limited reserves and weaker access to alternative premises. Each removal represents the loss of services, staff, and volunteers, meaning that even small statistical increases translate into significant social consequences when scaled nationally. The results also highlight the paradox of a sector numerically dominated by small and medium organisations but financially concentrated in a few large providers. Without targeted safeguards, such as measures to strengthen the capacity of smaller organisations to engage in CAT processes or preferential arrangements that prioritise community-scale actors, current disposal practices risk accelerating consolidation and diminishing the pluralism and resilience of local civil society. More broadly, the study demonstrates the value of integrating local authority financial data with charity-level outcomes, offering a scalable framework for assessing how shifts in public asset governance affect voluntary sector sustainability.
 
 ## Reproducibility
 This repository contains the full code and cleaning scripts needed to replicate the analysis. Due to file size restrictions, raw datasets are not stored here but can be obtained from the listed sources.
