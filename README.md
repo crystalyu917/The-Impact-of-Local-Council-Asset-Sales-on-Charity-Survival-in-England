@@ -6,12 +6,14 @@ This repository contains the source materials for a dissertation submitted in Au
 This dissertation investigates whether local council asset sales, measured through capital receipt data, affect the survival of charities in England. Using Charity Commission deregistration records combined with local authority receipts, the study applies panel regression with fixed effects and temporal lags to identify both immediate and delayed effects.
 
 ## Environment & Installation
-```bash
-# install requirements
-pip install -r requirements.txt
+```
+# Setup venv
+python -m venv .venv
 
-# (optional) install package in editable mode if using src/ for imports/console scripts
-pip install -e.
+# {Then activate the virtual environment here...}
+
+# Run after the venv is activated
+pip install -r requirements.txt
 ```
 ## Project Structure
 ```bash
@@ -57,4 +59,12 @@ ONS. (2025). Postcode lookup to local authority codes [Accessed:  2025]. Office 
 This repository contains the full code and cleaning scripts needed to replicate the analysis. Due to file size restrictions, raw datasets are not stored here but can be obtained from the listed sources.
 
 Capital receipt data are manually collated by pasting each year from the original CSV as a separate tab into a combined file, which is then converted into a single CSV for easier processing and integration with the charity dataset.
+
+After the datasets are collected per the instruction above (and stored in the data\raw folder) run the following in exact order:
+```
+python scripts\run_clean_charity_main.py
+python scripts\run_clean_receipt.py
+```
+
+Once the cleaning scripts are executed the relevant data will be stored at data\processed which can be accessed within the Jupyter notebooks provided.
 
